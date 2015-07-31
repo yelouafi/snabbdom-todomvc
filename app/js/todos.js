@@ -9,7 +9,6 @@ const KEY_ENTER = 13;
 
 // model : { nextID: Number, editingTitle: String, tasks: [task.model], filter: String }
 const Action = Type({
-  Init          : [Array],
   Add           : [String],
   Remove        : [Number],
   Archive       : [],
@@ -78,6 +77,15 @@ function view(model, handler) {
   ]);
 }
 
+function init(tasks=[]) {
+  return { 
+    nextID: tasks.reduce((acc, task) => Math.max(acc, task.id), 0) + 1, 
+    tasks, 
+    editingTitle: '', 
+    filter: 'all' 
+  }
+}
+
 function remainingTodos(tasks) {
   return tasks.reduce( (acc, task) => !task.done ? acc+1 : acc, 0);
 }
@@ -91,7 +99,7 @@ function filteredTodos(tasks, filter) {
 function addTodo(model, title) {
   return {...model,
     tasks         : [ ...model.tasks, 
-                    task.update(null, task.Action.Init(model.nextID, title))],
+                    task.init(model.nextID, title)],
     editingTitle  : '',
     nextID        : model.nextID + 1
   }
@@ -126,7 +134,6 @@ function modifyTodo(model ,id, action) {
 
 function update(model, action) {
   return Action.case({
-    Init      : tasks => ({ nextID: 1, tasks, editingTitle: '', filter: 'all' }),
     Add       : title => addTodo(model, title),
     Remove    : id => removeTodo(model, id),
     Archive   : () => archiveTodos(model),
@@ -136,4 +143,4 @@ function update(model, action) {
   }, action);
 }
 
-export default { view, update, Action }
+export default { view, init, update, Action }

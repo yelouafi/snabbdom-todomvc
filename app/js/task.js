@@ -8,7 +8,6 @@ const KEY_ENTER = 13;
 
 // model : {id: Number, title: String, done: Boolean, editing: Boolean, editingValue: String }
 const Action = Type({
-  Init          : [Number, String],
   SetTitle      : [String],
   Toggle        : [isBoolean],
   StartEdit     : [],
@@ -61,9 +60,12 @@ function view(task, handler, remove) {
   ]);
 }
 
+function init(id, title) {
+  return { id, title, done: false, editing: false, editingValue: '' };
+}
+
 function update(task, action) {
   return Action.case({
-    Init        : (id, title) => ({ id, title, done: false, editing: false, editingValue: '' }),
     Toggle      : done  => ({...task, done}),
     StartEdit   : () => ({...task, editing: true, editingValue: task.title}),
     CommitEdit  : title => ({...task, title, editing: false,  editingValue: ''}),
@@ -71,4 +73,4 @@ function update(task, action) {
   }, action);
 }
 
-export default { view, update, Action }
+export default { view, init, update, Action }

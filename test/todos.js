@@ -1,14 +1,12 @@
 "use strict";
 
 import test from 'tape';
-import { update, Action } from '../app/js/todos';
+import { init, update, Action } from '../app/js/todos';
 import task from '../app/js/task';
 
 test('counter update function', (assert) => {
     
-  var todos;
-  
-  todos = update(todos, Action.Init([]));
+  var todos = init();
   assert.deepEqual(todos, { nextID: 1, tasks: [], editingTitle: '', filter: 'all' });
   
   todos = update(todos, Action.Add('task 1'));

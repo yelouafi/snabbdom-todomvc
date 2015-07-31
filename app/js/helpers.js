@@ -34,12 +34,14 @@ export function propGetter(path) {
   }
 }
 
+const win = this;
 export function windowEventsHook(event) {
   var changeHandler;
   
-  window.addEventListener(event, e => {
-    changeHandler(e);
-  });
+  if(this && typeof this.addEventListener === 'function')
+    this.addEventListener(event, e => {
+      changeHandler(e);
+    });
 
   return handler => ({
     create: () => changeHandler = handler,
