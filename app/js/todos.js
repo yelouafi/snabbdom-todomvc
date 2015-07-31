@@ -2,7 +2,7 @@
 
 import h from 'snabbdom/h';
 import Type from 'union-type';
-import { bind, sequence, isBoolean, windowEventsHook }  from './helpers';
+import { bind, sequence, isBoolean }  from './helpers';
 import task from './task';
 
 const KEY_ENTER = 13;
@@ -27,8 +27,6 @@ function onInput(handler, e) {
     
 }
 
-const hashChangeHook = windowEventsHook('hashchange');
-
 function view(model, handler) {
   
   const remaining = remainingTodos(model.tasks);
@@ -36,7 +34,8 @@ function view(model, handler) {
   
   
   return h('section.todoapp', {
-    hook: hashChangeHook(_ => handler(Action.Filter(window.location.hash.substr(2) || 'all')))
+    windowOn: { hashchange: _ => handler(Action.Filter(window.location.hash.substr(2) || 'all')) },
+    on : { click: () => console.log('clicked') }
   }, [
     h('header.header', [
       h('h1', 'todos'),

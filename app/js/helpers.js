@@ -33,18 +33,3 @@ export function propGetter(path) {
     return target;
   }
 }
-
-const win = this;
-export function windowEventsHook(event) {
-  var changeHandler;
-  
-  if(this && typeof this.addEventListener === 'function')
-    this.addEventListener(event, e => {
-      changeHandler(e);
-    });
-
-  return handler => ({
-    create: () => changeHandler = handler,
-    update: () => changeHandler = handler
-  });
-}

@@ -8,7 +8,6 @@ exports.isBoolean = isBoolean;
 exports.bind = bind;
 exports.sequence = sequence;
 exports.propGetter = propGetter;
-exports.windowEventsHook = windowEventsHook;
 
 function isBoolean(arg) {
   return typeof arg === 'boolean';
@@ -57,25 +56,6 @@ function propGetter(path) {
   };
 }
 
-function windowEventsHook(event) {
-  var changeHandler;
-
-  window.addEventListener(event, function (e) {
-    changeHandler(e);
-  });
-
-  return function (handler) {
-    return {
-      create: function create() {
-        return changeHandler = handler;
-      },
-      update: function update() {
-        return changeHandler = handler;
-      }
-    };
-  };
-}
-
 },{}],2:[function(require,module,exports){
 "use strict";
 
@@ -92,9 +72,10 @@ var _todos2 = _interopRequireDefault(_todos);
 var patch = _snabbdom2['default'].init([require('snabbdom/modules/class'), // makes it easy to toggle classes
 require('snabbdom/modules/props'), // for setting properties on DOM elements
 require('snabbdom/modules/style'), // handles styling on elements with support for animations
-require('snabbdom/modules/eventlisteners')]);
+require('snabbdom/modules/eventlisteners'), // attaches event listeners
+require('./snabbdom-modules/window-events') // attaches event listeners to windows
+]);
 
-// attaches event listeners
 function main(initState, oldVnode, _ref) {
   var view = _ref.view;
   var update = _ref.update;
@@ -106,11 +87,31 @@ function main(initState, oldVnode, _ref) {
   patch(oldVnode, newVnode);
 }
 
-var state = _todos2['default'].update(null, _todos2['default'].Action.Init([]));
+var state = _todos2['default'].init();
 
 main(state, document.querySelector('.todoapp'), _todos2['default']);
 
-},{"./todos":4,"snabbdom":11,"snabbdom/modules/class":7,"snabbdom/modules/eventlisteners":8,"snabbdom/modules/props":9,"snabbdom/modules/style":10}],3:[function(require,module,exports){
+},{"./snabbdom-modules/window-events":3,"./todos":5,"snabbdom":12,"snabbdom/modules/class":8,"snabbdom/modules/eventlisteners":9,"snabbdom/modules/props":10,"snabbdom/modules/style":11}],3:[function(require,module,exports){
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
+
+var _snabbdomModulesEventlisteners = require('snabbdom/modules/eventlisteners');
+
+var _snabbdomModulesEventlisteners2 = _interopRequireDefault(_snabbdomModulesEventlisteners);
+
+function updateWindowEvents(oldVnode, vnode) {
+  _snabbdomModulesEventlisteners2["default"].update({ elm: window, data: { on: oldVnode.data.windowOn } }, { elm: window, data: { on: vnode.data.windowOn } });
+}
+
+exports["default"] = { create: updateWindowEvents, update: updateWindowEvents };
+module.exports = exports["default"];
+
+},{"snabbdom/modules/eventlisteners":9}],4:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, '__esModule', {
@@ -135,7 +136,6 @@ var KEY_ENTER = 13;
 
 // model : {id: Number, title: String, done: Boolean, editing: Boolean, editingValue: String }
 var Action = (0, _unionType2['default'])({
-  Init: [Number, String],
   SetTitle: [String],
   Toggle: [_helpers.isBoolean],
   StartEdit: [],
@@ -180,11 +180,12 @@ function view(task, handler, remove) {
   })]);
 }
 
+function init(id, title) {
+  return { id: id, title: title, done: false, editing: false, editingValue: '' };
+}
+
 function update(task, action) {
   return Action['case']({
-    Init: function Init(id, title) {
-      return { id: id, title: title, done: false, editing: false, editingValue: '' };
-    },
     Toggle: function Toggle(done) {
       return _extends({}, task, { done: done });
     },
@@ -200,10 +201,10 @@ function update(task, action) {
   }, action);
 }
 
-exports['default'] = { view: view, update: update, Action: Action };
+exports['default'] = { view: view, init: init, update: update, Action: Action };
 module.exports = exports['default'];
 
-},{"./helpers":1,"snabbdom/h":5,"union-type":18}],4:[function(require,module,exports){
+},{"./helpers":1,"snabbdom/h":6,"union-type":19}],5:[function(require,module,exports){
 "use strict";
 
 Object.defineProperty(exports, '__esModule', {
@@ -234,7 +235,6 @@ var KEY_ENTER = 13;
 
 // model : { nextID: Number, editingTitle: String, tasks: [task.model], filter: String }
 var Action = (0, _unionType2['default'])({
-  Init: [Array],
   Add: [String],
   Remove: [Number],
   Archive: [],
@@ -252,13 +252,9 @@ var targetValue = function targetValue(e) {
 
 function onInput(handler, e) {
   if (e.keyCode === KEY_ENTER) {
-    var value = e.target.value;
-    //e.target.value = '';
-    handler(Action.Add(value));
+    handler(Action.Add(e.target.value));
   }
 }
-
-var hashChangeHook = (0, _helpers.windowEventsHook)('hashchange');
 
 function view(model, handler) {
 
@@ -266,9 +262,12 @@ function view(model, handler) {
   var filtered = filteredTodos(model.tasks, model.filter);
 
   return (0, _snabbdomH2['default'])('section.todoapp', {
-    hook: hashChangeHook(function (_) {
-      return handler(Action.Filter(window.location.hash.substr(2) || 'all'));
-    })
+    windowOn: { hashchange: function hashchange(_) {
+        return handler(Action.Filter(window.location.hash.substr(2) || 'all'));
+      } },
+    on: { click: function click() {
+        return console.log('clicked');
+      } }
   }, [(0, _snabbdomH2['default'])('header.header', [(0, _snabbdomH2['default'])('h1', 'todos'), (0, _snabbdomH2['default'])('input#new-todo.new-todo', {
     props: { placeholder: 'What needs to be done?', value: model.editingTitle },
     on: { keydown: (0, _helpers.bind)(onInput, handler) }
@@ -292,6 +291,19 @@ function view(model, handler) {
   }, 'Clear completed')])]);
 }
 
+function init() {
+  var tasks = arguments.length <= 0 || arguments[0] === undefined ? [] : arguments[0];
+
+  return {
+    nextID: tasks.reduce(function (acc, task) {
+      return Math.max(acc, task.id);
+    }, 0) + 1,
+    tasks: tasks,
+    editingTitle: '',
+    filter: 'all'
+  };
+}
+
 function remainingTodos(tasks) {
   return tasks.reduce(function (acc, task) {
     return !task.done ? acc + 1 : acc;
@@ -308,7 +320,7 @@ function filteredTodos(tasks, filter) {
 
 function addTodo(model, title) {
   return _extends({}, model, {
-    tasks: [].concat(_toConsumableArray(model.tasks), [_task2['default'].update(null, _task2['default'].Action.Init(model.nextID, title))]),
+    tasks: [].concat(_toConsumableArray(model.tasks), [_task2['default'].init(model.nextID, title)]),
     editingTitle: '',
     nextID: model.nextID + 1
   });
@@ -348,9 +360,6 @@ function modifyTodo(model, id, action) {
 
 function update(model, action) {
   return Action['case']({
-    Init: function Init(tasks) {
-      return { nextID: 1, tasks: tasks, editingTitle: '', filter: 'all' };
-    },
     Add: function Add(title) {
       return addTodo(model, title);
     },
@@ -372,10 +381,10 @@ function update(model, action) {
   }, action);
 }
 
-exports['default'] = { view: view, update: update, Action: Action };
+exports['default'] = { view: view, init: init, update: update, Action: Action };
 module.exports = exports['default'];
 
-},{"./helpers":1,"./task":3,"snabbdom/h":5,"union-type":18}],5:[function(require,module,exports){
+},{"./helpers":1,"./task":4,"snabbdom/h":6,"union-type":19}],6:[function(require,module,exports){
 var VNode = require('./vnode');
 var is = require('./is');
 
@@ -398,13 +407,13 @@ module.exports = function h(sel, b, c) {
   return VNode(sel, data, children, text, undefined);
 };
 
-},{"./is":6,"./vnode":12}],6:[function(require,module,exports){
+},{"./is":7,"./vnode":13}],7:[function(require,module,exports){
 module.exports = {
   array: Array.isArray,
   primitive: function(s) { return typeof s === 'string' || typeof s === 'number'; },
 };
 
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 function updateClass(oldVnode, vnode) {
   var cur, name, elm = vnode.elm,
       oldClass = oldVnode.data.class || {},
@@ -419,7 +428,7 @@ function updateClass(oldVnode, vnode) {
 
 module.exports = {create: updateClass, update: updateClass};
 
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 var is = require('../is');
 
 function arrInvoker(arr) {
@@ -462,7 +471,7 @@ function updateEventListeners(oldVnode, vnode) {
 
 module.exports = {create: updateEventListeners, update: updateEventListeners};
 
-},{"../is":6}],9:[function(require,module,exports){
+},{"../is":7}],10:[function(require,module,exports){
 function updateProps(oldVnode, vnode) {
   var key, cur, old, elm = vnode.elm,
       oldProps = oldVnode.data.props || {}, props = vnode.data.props || {};
@@ -477,7 +486,7 @@ function updateProps(oldVnode, vnode) {
 
 module.exports = {create: updateProps, update: updateProps};
 
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 var raf = requestAnimationFrame || setTimeout;
 var nextFrame = function(fn) { raf(function() { raf(fn); }); };
 
@@ -538,7 +547,7 @@ function applyRemoveStyle(vnode, rm) {
 
 module.exports = {create: updateStyle, update: updateStyle, destroy: applyDestroyStyle, remove: applyRemoveStyle};
 
-},{}],11:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 // jshint newcap: false
 /* global require, module, document, Element */
 'use strict';
@@ -777,14 +786,14 @@ function init(modules) {
 
 module.exports = {init: init};
 
-},{"./is":6,"./vnode":12}],12:[function(require,module,exports){
+},{"./is":7,"./vnode":13}],13:[function(require,module,exports){
 module.exports = function(sel, data, children, text, elm) {
   var key = data === undefined ? undefined : data.key;
   return {sel: sel, data: data, children: children,
           text: text, elm: elm, key: key};
 };
 
-},{}],13:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 var _curry2 = require('./internal/_curry2');
 
 
@@ -833,7 +842,7 @@ module.exports = _curry2(function(n, fn) {
   }
 });
 
-},{"./internal/_curry2":16}],14:[function(require,module,exports){
+},{"./internal/_curry2":17}],15:[function(require,module,exports){
 var _curry2 = require('./internal/_curry2');
 var _curryN = require('./internal/_curryN');
 var arity = require('./arity');
@@ -886,7 +895,7 @@ module.exports = _curry2(function curryN(length, fn) {
   return arity(length, _curryN(length, [], fn));
 });
 
-},{"./arity":13,"./internal/_curry2":16,"./internal/_curryN":17}],15:[function(require,module,exports){
+},{"./arity":14,"./internal/_curry2":17,"./internal/_curryN":18}],16:[function(require,module,exports){
 /**
  * Optimized internal two-arity curry function.
  *
@@ -907,7 +916,7 @@ module.exports = function _curry1(fn) {
   };
 };
 
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 var _curry1 = require('./_curry1');
 
 
@@ -941,7 +950,7 @@ module.exports = function _curry2(fn) {
   };
 };
 
-},{"./_curry1":15}],17:[function(require,module,exports){
+},{"./_curry1":16}],18:[function(require,module,exports){
 var arity = require('../arity');
 
 
@@ -981,7 +990,7 @@ module.exports = function _curryN(length, received, fn) {
   };
 };
 
-},{"../arity":13}],18:[function(require,module,exports){
+},{"../arity":14}],19:[function(require,module,exports){
 var curryN = require('ramda/src/curryN');
 
 function isString(s) { return typeof s === 'string'; }
@@ -1051,4 +1060,4 @@ function Type(desc) {
 
 module.exports = Type;
 
-},{"ramda/src/curryN":14}]},{},[2]);
+},{"ramda/src/curryN":15}]},{},[2]);
