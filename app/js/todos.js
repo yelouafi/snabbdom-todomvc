@@ -9,6 +9,7 @@ const KEY_ENTER = 13;
 
 // model : { nextID: Number, editingTitle: String, tasks: [task.model], filter: String }
 const Action = Type({
+  InputTitle    : [String],
   Add           : [String],
   Remove        : [Number],
   Archive       : [],
@@ -41,7 +42,10 @@ function view(model, handler) {
       h('h1', 'todos'),
       h('input#new-todo.new-todo', {
         props: {placeholder: 'What needs to be done?', value: model.editingTitle },
-        on: { keydown: bind(onInput, handler)}
+        on: {
+          input: sequence(targetValue, Action.InputTitle, handler),
+          keydown: bind(onInput, handler)
+        }
       }),
     ]),
     h('section.main', {
@@ -80,7 +84,7 @@ function init(tasks=[]) {
   return { 
     nextID: tasks.reduce((acc, task) => Math.max(acc, task.id), 0) + 1, 
     tasks, 
-    editingTitle: '', 
+    editingTitle: '',
     filter: 'all' 
   }
 }
@@ -93,6 +97,12 @@ function filteredTodos(tasks, filter) {
   return   filter === 'completed' ? tasks.filter( todo => todo.done )
          : filter === 'active'    ? tasks.filter( todo => !todo.done )
                                   : tasks;
+}
+
+function inputTitle(model, title) {
+  return {...model,
+    editingTitle : title,
+  }
 }
 
 function addTodo(model, title) {
@@ -129,16 +139,15 @@ function modifyTodo(model ,id, action) {
   };
 }
 
-
-
 function update(model, action) {
   return Action.case({
-    Add       : title => addTodo(model, title),
-    Remove    : id => removeTodo(model, id),
-    Archive   : () => archiveTodos(model),
-    ToggleAll : done => toggleAll(model, done),
-    Filter    : filter => ({...model, filter }),
-    Modify    : (id, action) => modifyTodo(model, id, action)
+    InputTitle : title => inputTitle(model, title),
+    Add        : title => addTodo(model, title),
+    Remove     : id => removeTodo(model, id),
+    Archive    : () => archiveTodos(model),
+    ToggleAll  : done => toggleAll(model, done),
+    Filter     : filter => ({...model, filter }),
+    Modify     : (id, action) => modifyTodo(model, id, action)
   }, action);
 }
 
